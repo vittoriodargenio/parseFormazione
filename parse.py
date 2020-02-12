@@ -1,4 +1,5 @@
 
+
 '''
 
 {
@@ -19,11 +20,12 @@
 
 '''
 
+
 from docx import Document
 import json
 import os
 
-startInputPath = './file'
+startInputPath = './file_'
 startOutputPath = './output'
 
 
@@ -62,6 +64,9 @@ def parseDocx(document, path_save):
                             dict[sigla]['competenze_in_uscita'] = cells[1].text.replace('\n', '').replace('§', '-')
                         else:
                             dict[sigla]['competenze_in_uscita'] = cells[2].text.replace('\n', '').replace('§', '-')
+                    elif cells[0].text.strip().lower().replace('\n', '') == 'verifica e valutazione':
+                        print(cells[1].text)
+
             # Table lezioni
             else:
                 # Riga carateristiche lezione
@@ -84,32 +89,33 @@ def parseDocx(document, path_save):
                             })
                             indiceLezione += 1
                 else:
-                    # PARSE DOCX Formattati male
-                    if count < 2:
-                        count += 1
-                        continue
-                    print(len(cells))
-                    print('lezione', cells[3].text.replace('\n', '').replace('§', '-'))
-                    print('argomento', cells[5].text.replace('\n', '').replace('§', '-'))
-                    print('ore', cells[6].text.replace('\n', '').replace('§', '-'))
-                    print('\n\n')
-                    if len(cells) == 8:
-
-                        dict[sigla]['lezioni'].update({
-                            indiceLezione: {
-                                "lezione": cells[1].text.replace('\n', '').replace('§', '-'),
-                                "id": "{}{}".format(
-                                    str(indiceLezione),
-                                    ''.join(
-                                        [i[0] for i in cells[1].text.replace('\n', '').split()]
-                                    )
-                                ).upper(),
-                                "argomento": cells[5].text.replace('\n', '').replace('§', '-'),
-                                "nota": "",
-                                "ore": cells[6].text.replace('\n', '')
-                            },
-                        })
-                        indiceLezione += 1
+                    print('else')
+                    # # PARSE DOCX Formattati male
+                    # if count < 2:
+                    #     count += 1
+                    #     continue
+                    # print(len(cells))
+                    # print('lezione', cells[3].text.replace('\n', '').replace('§', '-'))
+                    # print('argomento', cells[5].text.replace('\n', '').replace('§', '-'))
+                    # print('ore', cells[6].text.replace('\n', '').replace('§', '-'))
+                    # print('\n\n')
+                    # if len(cells) == 8:
+                    #
+                    #     dict[sigla]['lezioni'].update({
+                    #         indiceLezione: {
+                    #             "lezione": cells[1].text.replace('\n', '').replace('§', '-'),
+                    #             "id": "{}{}".format(
+                    #                 str(indiceLezione),
+                    #                 ''.join(
+                    #                     [i[0] for i in cells[1].text.replace('\n', '').split()]
+                    #                 )
+                    #             ).upper(),
+                    #             "argomento": cells[5].text.replace('\n', '').replace('§', '-'),
+                    #             "nota": "",
+                    #             "ore": cells[6].text.replace('\n', '')
+                    #         },
+                    #     })
+                    #     indiceLezione += 1
 
         isCaratteristiche = False
 
@@ -118,31 +124,60 @@ def parseDocx(document, path_save):
         json.dump(dict, f)
 
 
-def parsRec(path_start='./file2', path_save='./output'):
+def parseDocxToCSV(document, path_save):
+    list = []
+
+    for table in document.tables:
+        for row in table.rows:
+            cells = row.cells
+            if len(cells):
+                if cells[0].text.strip().lower().replace(' ', '').replace('\n', '') == 'verificaevalutazione':
+                    for el in cells[1:]:
+                        if el.text:
+                            list.append(
+                                {
+                                    "nome": path_save.split('/')[-1].split('.')[0],
+                                    "value": el.text
+                                }
+                            )
+            else:
+                list.append(
+                    {
+                        "nome": path_save.split('/')[-1].split('.')[0],
+                        "value": ""
+                    }
+                )
+
+
+    return list
+
+
+def parsRec(path_start='./file', path_save='./output'):
+    list = []
     if os.path.isfile(path_start) and path_start.split('.')[-1] == 'docx':
         print('**[{}]'.format(path_start))
         document = Document(path_start)
-        parseDocx(document, path_save)
+        # parseDocx(document, path_save)
+        list.extend(parseDocxToCSV(document, path_save))
     elif os.path.isdir(path_start):
         for el in os.listdir(path_start):
-            parsRec(
-                path_start=os.path.join(path_start, el),
-                path_save=os.path.join(path_save, el).replace('docx', 'json').replace('doc', 'json')
+            list.extend(
+                parsRec(
+                    path_start=os.path.join(path_start, el),
+                    path_save=os.path.join(path_save, el).replace('docx', 'json').replace('doc', 'json')
+                )
             )
     else:
         print('{}'.format(path_start))
 
+    return list
+
 
 if __name__ == "__main__":
-    parsRec()
+    l = parsRec()
 
-# for dir in os.listdir(startInputPath):
-#     path_dir = os.path.join(startInputPath, dir)
-#     for file in os.listdir(path_dir):
-#         path_file = os.path.join(path_dir, file)
-#         if os.path.isfile(path_file) and path_file.split('.')[-1] == 'docx':
-#             print('**[{}]'.format(path_file))
-#             document = Document(path_file)
-#             path_save = path_file.replace('file', 'output').replace('docx', 'json')
-#             parseDocx(document, path_save)
+    os.makedirs(os.path.dirname('./output/file.json'), exist_ok=True)
+    with open('./output/file.json', 'w') as f:
+        json.dump(l, f)
+
 
